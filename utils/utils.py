@@ -56,6 +56,42 @@ class My_Dataset(Dataset):
         Target: (N,H,W) where each value is 0 <= targets[i] <= C-1,so we use torch.from_numpy to convert numpy to tensor"""
         return img,new_mask
 
+def intersectionAndUnion(imPred, imLab, numClass):
+    imPred = np.asarray(imPred)
+    imLab = np.asarray(imLab)
+
+    # Remove classes from unlabeled pixels in gt image.
+    # We should not penalize detections in unlabeled portions of the image.
+    imPred = imPred * (imLab > 0)
+
+    # Compute area intersection:
+    intersection = imPred * (imPred == imLab)
+    (area_intersection, _) = np.histogram(intersection, bins=numClass, range=(1, numClass))
+
+    # Compute area union:
+    (area_pred, _) = np.histogram(imPred, bins=numClass, range=(1, numClass))
+    (area_lab, _) = np.histogram(imLab, bins=numClass, range=(1, numClass))
+    area_union = area_pred + area_lab - area_intersection
+
+    return (area_intersection, area_union)
+
+
+# This function takes the prediction and label of a single image, returns pixel-wise accuracy
+# To compute over many images do:
+# for i = range(Nimages):
+#	(pixel_accuracy[i], pixel_correct[i], pixel_labeled[i]) = pixelAccuracy(imPred[i], imLab[i])
+# mean_pixel_accuracy = 1.0 * np.sum(pixel_correct) / (np.spacing(1) + np.sum(pixel_labeled))
+def pixelAccuracy(imPred, imLab):
+    imPred = np.asarray(imPred)
+    imLab = np.asarray(imLab)
+
+    # Remove classes from unlabeled pixels in gt image.
+    # We should not penalize detections in unlabeled portions of the image.
+    pixel_labeled = np.sum(imLab > 0)
+    pixel_correct = np.sum((imPred == imLab) * (imLab > 0))
+    pixel_accuracy = 1.0 * pixel_correct / pixel_labeled
+
+    return (pixel_accuracy, pixel_correct, pixel_labeled)
 if __name__=="__main__":
     original = cv2.imread("../data/membrane/train/image/0.png",cv2.IMREAD_ANYCOLOR)
     mask = cv2.imread("../data/membrane/train/label/2007_000032.png", cv2.IMREAD_ANYDEPTH)
